@@ -23,7 +23,7 @@
 
         public OPMMonitor()
         {
-            m_monitor = new System.Timers.Timer(1000) { AutoReset = true };
+            m_monitor = new System.Timers.Timer(TimeSpan.FromMinutes(5).TotalMilliseconds) { AutoReset = true };
             m_monitor.Elapsed += (sender, eventArgs) =>
             {
                 Console.WriteLine("Checking OPM status...");
