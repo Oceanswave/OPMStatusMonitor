@@ -14,11 +14,13 @@
                     s.WhenStarted(tc => tc.Start());
                     s.WhenStopped(tc => tc.Stop());
                 });
-                x.RunAsLocalSystem();
+                x.RunAsPrompt();
 
                 x.SetDescription("Monitors the OPM site.");
                 x.SetDisplayName("OPM Monitor");
                 x.SetServiceName("OPMMonitor");
+                x.StartAutomatically();
+                
             }); 
         }
     }

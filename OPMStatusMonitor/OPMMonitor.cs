@@ -18,10 +18,27 @@
         public static string[] LightsToNotify = { "2" };
 
         private HueClient m_client;
-        private bool m_isRunning = false;
+        private System.Timers.Timer m_monitor;
+        private OPMStatus? m_lastStatus = null;
 
         public OPMMonitor()
         {
+            m_monitor = new System.Timers.Timer(1000) { AutoReset = true };
+            m_monitor.Elapsed += (sender, eventArgs) =>
+            {
+                Console.WriteLine("Checking OPM status...");
+                var status = AsyncPump.Run<OPMStatus>(() => { return OPMMonitor.GetOPMCurrentStatus(); });
+
+                if (status == OPMStatus.Error || (m_lastStatus.HasValue && m_lastStatus != status))
+                {
+                    var command = CreateLightCommandForStatus(status);
+
+                    AsyncPump.Run(async () => { await m_client.SendCommandAsync(command, LightsToNotify); });
+                }
+
+                Console.WriteLine("Status {0}.", status);
+                m_lastStatus = status;
+            }; 
         }
 
         public void Start()
@@ -35,33 +52,23 @@
             Console.WriteLine("Hue found at:{0}", hueIp);
             AssociateWithHue(m_client, hueIp);
 
-            OPMStatus? lastStatus = null;
-            m_isRunning = true;
-
-            while (m_isRunning)
-            {
-                Console.WriteLine("Checking OPM status...");
-                var status = AsyncPump.Run<OPMStatus>(() => { return OPMMonitor.GetOPMCurrentStatus(); });
-
-                if (status == OPMStatus.Error || (lastStatus.HasValue && lastStatus != status))
-                {
-                    var command = CreateLightCommandForStatus(status);
-
-                    AsyncPump.Run(async () => { await m_client.SendCommandAsync(command, LightsToNotify); });
-                }
-
-                Console.WriteLine("Status {0}.", status);
-                lastStatus = status;
-                Thread.Sleep(5000);
-            }
+            AsyncPump.Run(async () => { await m_client.SendCommandAsync(FlashLight(), LightsToNotify); });
+            m_monitor.Start();
         }
 
         public void Stop()
         {
             m_client = null;
-            m_isRunning = false;
+            m_monitor.Stop();
         }
 
+        private static LightCommand FlashLight()
+        {
+            var command = new LightCommand();
+            command.Alert = Alert.Once;
+            
+            return command;
+        }
         private static LightCommand CreateLightCommandForStatus(OPMStatus status)
         {
             var command = new LightCommand();
